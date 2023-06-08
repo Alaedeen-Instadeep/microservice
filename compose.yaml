@@ -1,0 +1,65 @@
+version: "3.8"
+services:
+  eureka-server:
+    image: jihedesprit/eurekaserver
+    ports:
+      - 8761:8761
+    environment:
+      SPRING_APPLICATION_JSON: '{
+            "spring.application.name":"eureka-service",
+            "eureka.client.register-with-eureka":false,
+            "eureka.client.fetch-registry":false,
+            "eureka.server.maxThreadsForPeerReplication":0}'
+
+  api-gateway:
+    image: alaedeen/apigateway
+    ports:
+      - 8090:8090
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka
+    depends_on:
+      - eureka-server
+
+  bank-profile-app:
+    image: alaedeen/profiles
+    ports:
+      - 8086:8086
+    depends_on:
+      - mysql_db
+      - eureka-server
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql_db:3306/bank_profile_db?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+    restart: on-failure
+
+  mysql_db:
+    image: mysql:latest
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=bank_profile_db
+
+  bank-transaction-app:
+    image: jihedesprit/transactions
+    ports:
+      - 8085:8085
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/transactiondb
+    depends_on:
+      - eureka-server
+      - postgres
+    restart: on-failure
+
+  postgres:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=transactiondb
+
+
